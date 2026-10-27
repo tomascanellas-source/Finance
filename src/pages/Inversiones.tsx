@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { supabase, num, type Activo, type Aportacion, type Precio } from '../supabase'
 import { parseImporte } from '../../supabase/functions/_shared/gastos.ts'
+import Donut from '../components/Donut'
 import { valorar } from '../lib/cartera'
 import { eur, fechaCorta, hoyISO, pct, signed } from '../lib/format'
 
@@ -17,7 +18,7 @@ const SUGERENCIAS: { nombre: string; tipo: string; ticker: string | null }[] = [
 ]
 // Participaciones con muchos decimales: "12,4537" o "12.4537" (no hay separador de miles)
 const parseCantidad = (s: string) => Number(s.trim().replace(',', '.'))
-const COLORES = ['var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)', 'var(--c5)', 'var(--c6)']
+const COLORES = ['var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)', 'var(--c5)', 'var(--c6)', 'var(--c7)', 'var(--c8)']
 
 export default function Inversiones() {
   const [activos, setActivos] = useState<Activo[]>([])
@@ -47,6 +48,8 @@ export default function Inversiones() {
   const valor = posiciones.reduce((s, p) => s + p.valor, 0)
   const ganancia = valor - aportado
   const ultimoCierre = precios.reduce<string | null>((m, p) => (!m || p.fecha > m ? p.fecha : m), null)
+  // Cada activo conserva su color aunque cambie el orden por valor
+  const colorDe = (id: string) => COLORES[Math.max(0, activos.findIndex(a => a.id === id)) % COLORES.length]
   const base = posiciones.reduce((s, p) => s + Math.max(0, p.valor), 0) || 1
 
   async function borrar(id: string) {
@@ -77,9 +80,18 @@ export default function Inversiones() {
           <section className="panel">
             <h2>Dónde está tu dinero</h2>
             {!posiciones.length && <p className="empty">{cargado ? 'Tus activos aparecerán aquí con su peso en la cartera y lo que ganan o pierden. Empieza con una aportación.' : 'Cargando…'}</p>}
-            {posiciones.map((p, i) => {
+            {posiciones.some(p => p.valor > 0) && (
+              <Donut
+                titulo="Valor hoy"
+                total={eur.format(valor)}
+                formato={eur.format}
+                leyenda={false}
+                datos={posiciones.filter(p => p.valor > 0).map(p => ({ clave: p.activo.id, etiqueta: p.activo.nombre, valor: p.valor, color: colorDe(p.activo.id) }))}
+              />
+            )}
+            {posiciones.map(p => {
               const g = p.valor - p.neto
-              const color = COLORES[i % COLORES.length]
+              const color = colorDe(p.activo.id)
               return (
                 <div className="fila" key={p.activo.id}>
                   <div className="nombre"><i className="dot" style={{ background: color }} /><span className="t">{p.activo.nombre}</span><span className="tag">{p.activo.tipo}</span></div>

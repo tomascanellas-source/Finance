@@ -1,24 +1,19 @@
 /* Paleta: tinta verde-pizarra con un verde de cuenta como acento; cifras en mono para que alineen */
 :root {
-  --bg: #F3F5F4; --surface: #FFFFFF; --ink: #14201C; --muted: #5D6B66; --line: #DCE3E0;
-  --accent: #0B7A5C; --accent-soft: #E2F2EC; --neg: #B4412F; --neg-soft: #F8E6E2;
-  --c1: #0B7A5C; --c2: #3566B8; --c3: #C27A12; --c4: #8A4FB5; --c5: #B4412F; --c6: #4F7F8C; --c7: #2E9A9A; --c8: #A35C7A; --c9: #6C7A2A;
-  --f-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
-  --f-body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
-  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0F1513; --surface: #18201D; --ink: #E7EEEB; --muted: #93A39D; --line: #2A3531;
-    --accent: #3FC79E; --accent-soft: #163329; --neg: #F08A74; --neg-soft: #3A1E18;
-    --c1: #3FC79E; --c2: #7EA6F0; --c3: #E7AA4A; --c4: #C08DEB; --c5: #F08A74; --c6: #86B9C6; --c7: #5FD0D0; --c8: #E09AB8; --c9: #B8C860;
-    color-scheme: dark;
-  }
+  --bg: #070B16; --surface: #0E1424; --ink: #E8EEFF; --muted: #8C98B8; --line: rgba(140, 160, 255, .16);
+  --accent: #2DE2C0; --accent-soft: rgba(45, 226, 192, .12); --neg: #FF6B8A; --neg-soft: rgba(255, 107, 138, .12);
+  --glass: linear-gradient(160deg, rgba(26, 38, 72, .62), rgba(12, 18, 38, .62));
+  /* Paleta categórica validada sobre #0B1020 (claridad, croma, daltonismo y contraste) */
+  --c1: #0EA3C1; --c2: #8F7CF2; --c3: #E2529A; --c4: #BE8710; --c5: #1AA574; --c6: #4F8DF5; --c7: #DD6A2A; --c8: #B766DB;
+  --gris1: #5B6585; --gris2: #8A94AD;
+  --f-display: "Space Grotesk", "Avenir Next", system-ui, sans-serif;
+  --f-body: "Inter", "Helvetica Neue", Arial, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: dark;
 }
 * { box-sizing: border-box }
 html, body { margin: 0 }
-body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; -webkit-text-size-adjust: 100% }
+body { background: radial-gradient(900px 500px at 10% -10%, rgba(14, 163, 193, .22), transparent 60%), radial-gradient(800px 500px at 100% 0%, rgba(143, 124, 242, .2), transparent 60%), radial-gradient(700px 600px at 50% 110%, rgba(226, 82, 154, .12), transparent 60%), var(--bg); background-attachment: fixed; color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; -webkit-text-size-adjust: 100% }
 h1, h2 { font-family: var(--f-display); margin: 0; text-wrap: balance }
 h1 { font-size: 1.9rem; letter-spacing: -.01em }
 h2 { font-size: 1.05rem }
@@ -120,3 +115,49 @@ code { font-family: var(--f-mono); font-size: .88em }
   h1 { font-size: 1.6rem }
 }
 .mov > .linkbtn:nth-child(3), .mov > .confirmar:nth-child(3) { grid-column: 2 }
+
+/* ---- Aspecto futurista: cristal, neón y rosco ---- */
+h1 { background: linear-gradient(90deg, #E8EEFF, #7FE9FF 55%, #B9A8FF); -webkit-background-clip: text; background-clip: text; color: transparent; width: fit-content }
+.panel, .tot { background: var(--glass); border-color: var(--line); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 18px 40px -22px rgba(0, 0, 0, .8) }
+.tot { position: relative; overflow: hidden }
+.tot::before { content: ""; position: absolute; left: 14px; right: 14px; top: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: .7 }
+.tot .v { text-shadow: 0 0 22px rgba(45, 226, 192, .25) }
+.tot .v.negc { text-shadow: 0 0 22px rgba(255, 107, 138, .3) }
+.label { color: #7F8BB0; letter-spacing: .14em }
+.panel h2 { letter-spacing: .01em }
+select, input { background: rgba(7, 11, 22, .6); border-color: var(--line) }
+input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45, 226, 192, .18); outline: none }
+.btn { background: rgba(255, 255, 255, .04); border-color: var(--line); color: var(--ink) }
+.btn.primary { background: linear-gradient(90deg, #14C8E6, #7C6BF0); border-color: transparent; color: #04101C; box-shadow: 0 8px 24px -8px rgba(80, 150, 255, .7) }
+.seg { background: rgba(7, 11, 22, .6) }
+.seg button[aria-pressed="true"] { background: linear-gradient(90deg, rgba(20, 200, 230, .25), rgba(124, 107, 240, .25)); color: var(--ink); box-shadow: inset 0 0 0 1px rgba(124, 200, 255, .35) }
+.tabs { background: rgba(8, 12, 26, .72); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); border-top-color: var(--line) }
+.tabs a[aria-current="page"] { color: var(--accent); box-shadow: inset 0 2px 0 var(--accent); text-shadow: 0 0 14px rgba(45, 226, 192, .6) }
+.bar { background: rgba(255, 255, 255, .06) }
+.bar i, .cbar { box-shadow: 0 0 12px -2px currentColor }
+.cbar { background: rgba(140, 160, 255, .22) }
+.columna.activa .cbar { background: linear-gradient(180deg, #2DE2C0, #14A8D0); box-shadow: 0 0 16px rgba(45, 226, 192, .55) }
+.chip { background: rgba(255, 255, 255, .05); border-color: var(--line) }
+.chip:hover { border-color: var(--accent) }
+.newbox { border-color: rgba(140, 160, 255, .28) }
+.copiable code { background: rgba(7, 11, 22, .7) }
+.banner { border: 1px solid rgba(255, 107, 138, .35) }
+.mov:hover { background: rgba(255, 255, 255, .03) }
+
+.donutwrap { display: flex; flex-direction: column; align-items: center; gap: 18px }
+.donut { position: relative; width: min(250px, 72vw); aspect-ratio: 1 }
+.donut svg { width: 100%; height: 100%; display: block; overflow: visible }
+.donut circle { fill: none; stroke-width: 20 }
+.donut-pista { stroke: rgba(255, 255, 255, .05) }
+.donut-trozo { cursor: pointer; transition: stroke-width .18s, opacity .18s, filter .18s; filter: drop-shadow(0 0 5px rgba(80, 160, 255, .25)) }
+.donut-trozo.on { stroke-width: 25; filter: drop-shadow(0 0 10px currentColor) drop-shadow(0 0 6px rgba(255, 255, 255, .35)) }
+.donut-trozo.off { opacity: .35 }
+.donut-centro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0 22%; text-align: center; pointer-events: none }
+.donut-centro .label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.donut-valor { font-size: 1.35rem; font-weight: 500; text-shadow: 0 0 18px rgba(45, 226, 192, .3) }
+.donut-sub { font-size: .8rem; color: var(--muted) }
+.leyenda { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column }
+.leyenda button { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; text-align: left; font: inherit; color: var(--ink); background: none; border: 0; border-radius: 8px; padding: 8px 6px; cursor: pointer }
+.leyenda button.on, .leyenda button:hover { background: rgba(255, 255, 255, .05) }
+.leyenda .num { font-size: .88rem }
+.leyenda .muted { min-width: 3.4em; text-align: right }

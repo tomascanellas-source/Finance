@@ -1,1 +1,1 @@
-{"root":["./src/App.tsx","./src/main.tsx","./src/supabase.ts","./src/lib/cartera.ts","./src/lib/format.ts","./src/pages/Ajustes.tsx","./src/pages/Gastos.tsx","./src/pages/Inversiones.tsx","./src/pages/Login.tsx"],"version":"5.6.3"}
+{"root":["./src/App.tsx","./src/main.tsx","./src/supabase.ts","./src/components/Donut.tsx","./src/lib/cartera.ts","./src/lib/format.ts","./src/pages/Ajustes.tsx","./src/pages/Gastos.tsx","./src/pages/Inversiones.tsx","./src/pages/Login.tsx"],"version":"5.6.3"}

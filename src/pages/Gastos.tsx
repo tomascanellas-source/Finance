@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { supabase, num, type Gasto } from '../supabase'
 import { CATEGORIAS, CATEGORIAS_INGRESO, categorizar, categorizarIngreso, normalizarComercio, parseImporte, type Regla } from '../../supabase/functions/_shared/gastos.ts'
+import Donut from '../components/Donut'
 import { eur, eur0, fechaCorta, hoyISO, mesCorto, mesDe, mesNombre, pct, signed, sumarMeses } from '../lib/format'
 
+// Colores fijos por categoría (paleta validada para fondo oscuro); Viajes y Otros van en grises etiquetados
 const COLOR: Record<string, string> = {
-  Supermercado: 'var(--c1)', Restaurantes: 'var(--c3)', Transporte: 'var(--c2)', Compras: 'var(--c4)', Ocio: 'var(--c5)',
-  Hogar: 'var(--c6)', Salud: 'var(--c7)', Suscripciones: 'var(--c8)', Viajes: 'var(--c9)', Otros: 'var(--muted)',
+  Supermercado: 'var(--c1)', Restaurantes: 'var(--c2)', Transporte: 'var(--c3)', Compras: 'var(--c4)', Ocio: 'var(--c5)',
+  Hogar: 'var(--c6)', Salud: 'var(--c7)', Suscripciones: 'var(--c8)', Viajes: 'var(--gris2)', Otros: 'var(--gris1)',
 }
 
 export default function Gastos() {
@@ -156,13 +158,14 @@ export default function Gastos() {
           <section className="panel">
             <h2>¿A dónde va tu dinero?</h2>
             {!porCategoria.length && <p className="empty">{cargado ? 'Cuando pagues con Apple Pay o apuntes un gasto, aquí verás el reparto por categoría.' : 'Cargando…'}</p>}
-            {porCategoria.map(([cat, v]) => (
-              <div className="fila" key={cat}>
-                <div className="nombre"><i className="dot" style={{ background: COLOR[cat] ?? 'var(--muted)' }} />{cat}</div>
-                <div className="num">{eur.format(v)} <span className="muted">· {pct.format(v / total)}</span></div>
-                <div className="bar"><i style={{ width: `${(v / porCategoria[0][1]) * 100}%`, background: COLOR[cat] ?? 'var(--muted)' }} /></div>
-              </div>
-            ))}
+            {porCategoria.length > 0 && (
+              <Donut
+                titulo="Gastado"
+                total={eur.format(total)}
+                formato={eur.format}
+                datos={porCategoria.map(([cat, v]) => ({ clave: cat, etiqueta: cat, valor: v, color: COLOR[cat] ?? 'var(--gris1)' }))}
+              />
+            )}
           </section>
 
           {topComercios.length > 0 && (
