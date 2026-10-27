@@ -10,6 +10,7 @@ const SUGERENCIAS: { nombre: string; tipo: string; ticker: string | null }[] = [
   { nombre: 'Vanguard FTSE All-World', tipo: 'ETF', ticker: 'VWCE.DE' },
   { nombre: 'iShares Core S&P 500', tipo: 'ETF', ticker: 'SXR8.DE' },
   { nombre: 'iShares Core MSCI EM IMI', tipo: 'ETF', ticker: 'IS3N.DE' },
+  { nombre: 'Amundi MSCI Emerging Markets', tipo: 'ETF', ticker: 'AEEM.PA' },
   { nombre: 'Bitcoin', tipo: 'Cripto', ticker: 'BTC-EUR' },
   { nombre: 'Ethereum', tipo: 'Cripto', ticker: 'ETH-EUR' },
   { nombre: 'Cuenta remunerada', tipo: 'Efectivo', ticker: null },
