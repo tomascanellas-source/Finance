@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { supabase, num, type Gasto } from '../supabase'
-import { CATEGORIAS, categorizar, normalizarComercio, parseImporte, type Regla } from '../../supabase/functions/_shared/gastos.ts'
-import { eur, eur0, fechaCorta, hoyISO, mesCorto, mesDe, mesNombre, pct, sumarMeses } from '../lib/format'
+import { CATEGORIAS, CATEGORIAS_INGRESO, categorizar, categorizarIngreso, normalizarComercio, parseImporte, type Regla } from '../../supabase/functions/_shared/gastos.ts'
+import { eur, eur0, fechaCorta, hoyISO, mesCorto, mesDe, mesNombre, pct, signed, sumarMeses } from '../lib/format'
 
 const COLOR: Record<string, string> = {
   Supermercado: 'var(--c1)', Restaurantes: 'var(--c3)', Transporte: 'var(--c2)', Compras: 'var(--c4)', Ocio: 'var(--c5)',
@@ -19,7 +19,7 @@ export default function Gastos() {
   const cargar = useCallback(async () => {
     const desde = sumarMeses(mesActual, -12) + '-01'
     const [g, r] = await Promise.all([
-      supabase.from('gastos').select('id, importe, comercio, categoria, tarjeta, fecha, origen').gte('fecha', desde).order('fecha', { ascending: false }).limit(5000),
+      supabase.from('gastos').select('id, importe, comercio, categoria, tarjeta, fecha, origen, tipo').gte('fecha', desde).order('fecha', { ascending: false }).limit(5000),
       supabase.from('reglas').select('comercio_norm, categoria'),
     ])
     if (g.error) setError('No se pueden cargar los gastos. Revisa la conexión y recarga.')
@@ -37,14 +37,19 @@ export default function Gastos() {
     return () => { supabase.removeChannel(ch); document.removeEventListener('visibilitychange', onFocus) }
   }, [cargar])
 
-  const delMes = useMemo(() => gastos.filter(g => mesDe(new Date(g.fecha)) === mes), [gastos, mes])
+  // Movimientos del mes (gastos e ingresos); los análisis por categoría solo miran los gastos
+  const movsMes = useMemo(() => gastos.filter(g => mesDe(new Date(g.fecha)) === mes), [gastos, mes])
+  const delMes = useMemo(() => movsMes.filter(g => g.tipo !== 'ingreso'), [movsMes])
+  const ingresosMes = useMemo(() => movsMes.filter(g => g.tipo === 'ingreso'), [movsMes])
   const total = delMes.reduce((s, g) => s + g.importe, 0)
+  const ingresado = ingresosMes.reduce((s, g) => s + g.importe, 0)
+  const balance = ingresado - total
 
   // Comparación justa: el mes anterior hasta el mismo día
   const comparacion = useMemo(() => {
     const anterior = sumarMeses(mes, -1)
     const hastaDia = mes === mesActual ? new Date().getDate() : 31
-    const prev = gastos.filter(g => { const d = new Date(g.fecha); return mesDe(d) === anterior && d.getDate() <= hastaDia })
+    const prev = gastos.filter(g => { const d = new Date(g.fecha); return g.tipo !== 'ingreso' && mesDe(d) === anterior && d.getDate() <= hastaDia })
     return { total: prev.reduce((s, g) => s + g.importe, 0), mesNombre: mesNombre(anterior).split(' ')[0], parcial: mes === mesActual }
   }, [gastos, mes, mesActual])
 
@@ -56,7 +61,7 @@ export default function Gastos() {
 
   const seisMeses = useMemo(() => {
     const meses = Array.from({ length: 6 }, (_, i) => sumarMeses(mes, i - 5))
-    return meses.map(m => ({ m, total: gastos.filter(g => mesDe(new Date(g.fecha)) === m).reduce((s, g) => s + g.importe, 0) }))
+    return meses.map(m => ({ m, total: gastos.filter(g => g.tipo !== 'ingreso' && mesDe(new Date(g.fecha)) === m).reduce((s, g) => s + g.importe, 0) }))
   }, [gastos, mes])
 
   const topComercios = useMemo(() => {
@@ -72,7 +77,8 @@ export default function Gastos() {
 
   async function cambiarCategoria(g: Gasto, categoria: string) {
     setGastos(gs => gs.map(x => (x.id === g.id ? { ...x, categoria } : x)))
-    const norm = normalizarComercio(g.comercio)
+    // Las reglas solo aprenden categorías de gasto
+    const norm = g.tipo === 'ingreso' ? '' : normalizarComercio(g.comercio)
     const [a] = await Promise.all([
       supabase.from('gastos').update({ categoria }).eq('id', g.id),
       norm ? supabase.from('reglas').upsert({ comercio_norm: norm, categoria }, { onConflict: 'user_id,comercio_norm' }) : null,
@@ -80,7 +86,7 @@ export default function Gastos() {
     if (a.error) setError('No se ha podido cambiar la categoría.')
     // Aplica la nueva regla a los gastos de ese comercio que estaban en Otros
     if (norm) {
-      const otros = gastos.filter(x => x.id !== g.id && x.categoria === 'Otros' && normalizarComercio(x.comercio) === norm).map(x => x.id)
+      const otros = gastos.filter(x => x.id !== g.id && x.tipo !== 'ingreso' && x.categoria === 'Otros' && normalizarComercio(x.comercio) === norm).map(x => x.id)
       if (otros.length) await supabase.from('gastos').update({ categoria }).in('id', otros)
     }
     cargar()
@@ -109,15 +115,24 @@ export default function Gastos() {
       {error && <div className="banner" role="alert">{error}</div>}
 
       <section className="totals">
-        <div className="tot"><div className="label">Gastado</div><div className="v num">{eur.format(total)}</div><div className="n">{delMes.length} pagos</div></div>
         <div className="tot">
-          <div className="label">Frente a {comparacion.mesNombre}</div>
-          <div className={'v num ' + (comparacion.total === 0 ? '' : diff > 0 ? 'negc' : 'pos')}>
-            {comparacion.total === 0 ? '—' : (diff > 0 ? '+' : '−') + eur.format(Math.abs(diff))}
+          <div className="label">Gastado</div>
+          <div className="v num">{eur.format(total)}</div>
+          <div className="n">
+            {delMes.length} {delMes.length === 1 ? 'pago' : 'pagos'}
+            {comparacion.total > 0 && Math.abs(diff) >= 0.005 && ` · ${pct.format(Math.abs(diff) / comparacion.total)} ${diff > 0 ? 'más' : 'menos'} que ${comparacion.mesNombre}${comparacion.parcial ? ' a estas alturas' : ''}`}
           </div>
-          <div className="n">{comparacion.total === 0 ? 'Sin datos del mes anterior' : `${comparacion.parcial ? 'a estas alturas de mes, ' : ''}${pct.format(Math.abs(diff) / comparacion.total)} ${diff > 0 ? 'más' : 'menos'}`}</div>
         </div>
-        <div className="tot"><div className="label">Categoría principal</div><div className="v">{porCategoria[0]?.[0] ?? '—'}</div><div className="n">{porCategoria[0] ? `${eur.format(porCategoria[0][1])} · ${pct.format(porCategoria[0][1] / (total || 1))}` : 'Aún sin gastos'}</div></div>
+        <div className="tot">
+          <div className="label">Ingresado</div>
+          <div className="v num">{eur.format(ingresado)}</div>
+          <div className="n">{ingresosMes.length ? `${ingresosMes.length} ${ingresosMes.length === 1 ? 'ingreso' : 'ingresos'}` : 'Bizums, nómina, devoluciones…'}</div>
+        </div>
+        <div className="tot">
+          <div className="label">Balance del mes</div>
+          <div className={'v num ' + (balance > 0 ? 'pos' : balance < 0 ? 'negc' : '')}>{signed(balance)}</div>
+          <div className="n">{porCategoria[0] ? `Lo que más: ${porCategoria[0][0]} (${pct.format(porCategoria[0][1] / (total || 1))})` : 'Ingresos menos gastos'}</div>
+        </div>
       </section>
 
       <div className="grid">
@@ -163,9 +178,9 @@ export default function Gastos() {
 
           <section className="panel">
             <h2>Movimientos</h2>
-            {!delMes.length && <p className="empty">No hay gastos en {mesNombre(mes)}.</p>}
+            {!movsMes.length && <p className="empty">No hay movimientos en {mesNombre(mes)}.</p>}
             <ul className="movs">
-              {delMes.map(g => (
+              {movsMes.map(g => (
                 <Movimiento key={g.id} g={g} onCategoria={c => cambiarCategoria(g, c)} onBorrar={() => borrar(g.id)} />
               ))}
             </ul>
@@ -176,17 +191,21 @@ export default function Gastos() {
   )
 }
 
+const ORIGEN = { applepay: ' · Apple Pay', atajo: ' · Atajo', manual: '' }
+
 function Movimiento({ g, onCategoria, onBorrar }: { g: Gasto; onCategoria: (c: string) => void; onBorrar: () => void }) {
   const [confirmar, setConfirmar] = useState(false)
+  const ingreso = g.tipo === 'ingreso'
+  const cats: readonly string[] = ingreso ? CATEGORIAS_INGRESO : CATEGORIAS
   return (
     <li className="mov">
       <div className="movtxt">
         <span className="t">{g.comercio}</span>
-        <span className="muted">{fechaCorta(g.fecha)}{g.origen === 'applepay' ? ' · Apple Pay' : ''}{g.tarjeta ? ` · ${g.tarjeta}` : ''}</span>
+        <span className="muted">{fechaCorta(g.fecha)}{ORIGEN[g.origen] ?? ''}{g.tarjeta ? ` · ${g.tarjeta}` : ''}</span>
       </div>
-      <span className="num importe">{eur.format(g.importe)}</span>
+      <span className={'num importe' + (ingreso ? ' pos' : '')}>{ingreso ? '+' + eur.format(g.importe) : eur.format(g.importe)}</span>
       <select aria-label={`Categoría de ${g.comercio}`} value={g.categoria} onChange={e => onCategoria(e.target.value)}>
-        {CATEGORIAS.map(c => <option key={c}>{c}</option>)}
+        {(cats.includes(g.categoria) ? cats : [g.categoria, ...cats]).map(c => <option key={c}>{c}</option>)}
       </select>
       {confirmar
         ? <span className="confirmar"><button className="btn small" onClick={onBorrar}>Borrar</button><button className="linkbtn" onClick={() => setConfirmar(false)}>No</button></span>
@@ -196,48 +215,62 @@ function Movimiento({ g, onCategoria, onBorrar }: { g: Gasto; onCategoria: (c: s
 }
 
 function NuevoGasto({ reglas, onGuardado }: { reglas: Regla[]; onGuardado: () => void }) {
+  const [tipo, setTipo] = useState<'gasto' | 'ingreso'>('gasto')
   const [importe, setImporte] = useState('')
   const [comercio, setComercio] = useState('')
   const [categoria, setCategoria] = useState('auto')
   const [fecha, setFecha] = useState(hoyISO())
   const [msg, setMsg] = useState<{ texto: string; error?: boolean } | null>(null)
-  const sugerida = comercio ? categorizar(comercio, reglas) : null
+  const ingreso = tipo === 'ingreso'
+  const sugerida = comercio ? (ingreso ? categorizarIngreso(comercio) : categorizar(comercio, reglas)) : null
+  const cats: readonly string[] = ingreso ? CATEGORIAS_INGRESO : CATEGORIAS
+
+  function cambiarTipo(t: 'gasto' | 'ingreso') {
+    setTipo(t); setCategoria('auto'); setMsg(null)
+  }
 
   async function guardar(e: FormEvent) {
     e.preventDefault()
     const n = parseImporte(importe)
     if (!(n > 0)) return setMsg({ texto: 'Escribe un importe, por ejemplo 12,50.', error: true })
-    if (!comercio.trim()) return setMsg({ texto: 'Escribe dónde has gastado.', error: true })
-    const cat = categoria === 'auto' ? sugerida ?? 'Otros' : categoria
+    if (!comercio.trim()) return setMsg({ texto: ingreso ? 'Escribe de dónde viene, por ejemplo “Bizum de Ana”.' : 'Escribe dónde has gastado.', error: true })
+    const cat = categoria === 'auto' ? sugerida ?? (ingreso ? 'Otros ingresos' : 'Otros') : categoria
     const ahora = new Date()
     const f = fecha === hoyISO() ? ahora.toISOString() : new Date(fecha + 'T12:00:00').toISOString()
-    const { error } = await supabase.from('gastos').insert({ importe: n, comercio: comercio.trim(), categoria: cat, fecha: f, origen: 'manual' })
+    const { error } = await supabase.from('gastos').insert({ importe: n, comercio: comercio.trim(), categoria: cat, fecha: f, origen: 'manual', tipo })
     if (error) return setMsg({ texto: 'No se ha guardado. Revisa la conexión.', error: true })
-    if (categoria !== 'auto') {
+    if (!ingreso && categoria !== 'auto') {
       const norm = normalizarComercio(comercio)
       if (norm) await supabase.from('reglas').upsert({ comercio_norm: norm, categoria: cat }, { onConflict: 'user_id,comercio_norm' })
     }
-    setMsg({ texto: `Guardado: ${eur.format(n)} en ${comercio.trim()} (${cat}).` })
+    setMsg({ texto: ingreso ? `Guardado: +${eur.format(n)} de ${comercio.trim()} (${cat}).` : `Guardado: ${eur.format(n)} en ${comercio.trim()} (${cat}).` })
     setImporte(''); setComercio(''); setCategoria('auto'); setFecha(hoyISO())
     onGuardado()
   }
 
   return (
     <form className="panel" onSubmit={guardar}>
-      <h2>Apuntar un gasto</h2>
+      <h2>Apuntar a mano</h2>
+      <div className="seg" role="group" aria-label="Tipo de movimiento">
+        <button type="button" aria-pressed={!ingreso} onClick={() => cambiarTipo('gasto')}>Gasto</button>
+        <button type="button" aria-pressed={ingreso} onClick={() => cambiarTipo('ingreso')}>Ingreso</button>
+      </div>
       <div className="row2">
         <div className="field"><label htmlFor="g-importe">Importe (€)</label><input id="g-importe" className="amount" inputMode="decimal" placeholder="0,00" value={importe} onChange={e => setImporte(e.target.value)} /></div>
         <div className="field"><label htmlFor="g-fecha">Fecha</label><input id="g-fecha" type="date" value={fecha} max={hoyISO()} onChange={e => setFecha(e.target.value)} /></div>
       </div>
-      <div className="field"><label htmlFor="g-comercio">¿Dónde?</label><input id="g-comercio" placeholder="Mercadona, cena con Ana…" value={comercio} onChange={e => setComercio(e.target.value)} /></div>
+      <div className="field">
+        <label htmlFor="g-comercio">{ingreso ? 'Concepto' : '¿Dónde?'}</label>
+        <input id="g-comercio" placeholder={ingreso ? 'Bizum de Ana, nómina…' : 'Mercadona, cena con Ana…'} value={comercio} onChange={e => setComercio(e.target.value)} />
+      </div>
       <div className="field">
         <label htmlFor="g-cat">Categoría</label>
         <select id="g-cat" value={categoria} onChange={e => setCategoria(e.target.value)}>
           <option value="auto">Automática{comercio ? `: ${sugerida ?? 'Otros'}` : ''}</option>
-          {CATEGORIAS.map(c => <option key={c}>{c}</option>)}
+          {cats.map(c => <option key={c}>{c}</option>)}
         </select>
       </div>
-      <button className="btn primary">Guardar gasto</button>
+      <button className="btn primary">{ingreso ? 'Guardar ingreso' : 'Guardar gasto'}</button>
       {msg && <p className={msg.error ? 'msg err' : 'msg ok'} role="status">{msg.texto}</p>}
     </form>
   )

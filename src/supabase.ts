@@ -10,7 +10,8 @@ export interface Gasto {
   categoria: string
   tarjeta: string | null
   fecha: string
-  origen: 'applepay' | 'manual'
+  origen: 'applepay' | 'manual' | 'atajo'
+  tipo: 'gasto' | 'ingreso'
 }
 
 export interface Activo {

@@ -1,11 +1,13 @@
 // Recibe cada pago que envía el Atajo de Apple Pay del iPhone y lo guarda como gasto.
+// El Atajo manual ("Apuntar movimiento") añade "tipo": "Gasto" o "Ingreso".
 //
 // POST /functions/v1/ingest
 // Authorization: Bearer <token generado en Ajustes>
 // { "importe": "23,50 €", "comercio": "MERCADONA", "tarjeta": "Revolut", "fecha": "2026-10-27T09:12:00Z" }
+// { "importe": "15", "comercio": "Bizum de Ana", "tipo": "Ingreso" }
 
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4'
-import { CATEGORIAS, categorizar, isCategoria, normalizarComercio, parseImporte } from '../_shared/gastos.ts'
+import { CATEGORIAS, categorizar, categorizarIngreso, esIngreso, isCategoria, normalizarComercio, parseImporte } from '../_shared/gastos.ts'
 
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
@@ -36,13 +38,26 @@ Deno.serve(async req => {
   if (!comercio) return json(400, { error: 'Falta el comercio' })
   const tarjeta = body.tarjeta ? String(body.tarjeta).slice(0, 80) : null
   const fecha = parseFecha(body.fecha)
+  // Solo el Atajo manual manda "tipo"; el de Apple Pay no
+  const origen = body.tipo != null ? 'atajo' : 'applepay'
+
+  if (esIngreso(body.tipo)) {
+    const categoria = categorizarIngreso(comercio)
+    const { data, error } = await admin
+      .from('gastos')
+      .insert({ user_id: tok.user_id, importe, comercio, categoria, tarjeta, fecha, origen, tipo: 'ingreso' })
+      .select('id')
+      .single()
+    if (error) return json(500, { error: 'No se ha podido guardar el ingreso' })
+    return json(200, { ok: true, id: data.id, mensaje: `+${euros(importe)} · ${comercio} · ${categoria}` })
+  }
 
   const { data: reglas } = await admin.from('reglas').select('comercio_norm, categoria').eq('user_id', tok.user_id)
   const categoria = categorizar(comercio, reglas ?? []) ?? (await categorizarConIA(comercio)) ?? 'Otros'
 
   const { data, error } = await admin
     .from('gastos')
-    .insert({ user_id: tok.user_id, importe, comercio, categoria, tarjeta, fecha, origen: 'applepay' })
+    .insert({ user_id: tok.user_id, importe, comercio, categoria, tarjeta, fecha, origen, tipo: 'gasto' })
     .select('id')
     .single()
   if (error) return json(500, { error: 'No se ha podido guardar el gasto' })
@@ -55,8 +70,10 @@ Deno.serve(async req => {
     )
   }
 
-  return json(200, { ok: true, id: data.id, mensaje: `${importe.toFixed(2).replace('.', ',')} € en ${comercio} · ${categoria}` })
+  return json(200, { ok: true, id: data.id, mensaje: `${euros(importe)} en ${comercio} · ${categoria}` })
 })
+
+const euros = (n: number) => `${n.toFixed(2).replace('.', ',')} €`
 
 function parseFecha(raw: unknown): string {
   if (typeof raw === 'string' && raw.trim()) {

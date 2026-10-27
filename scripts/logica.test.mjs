@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { aEuros, cierresDiarios } from './precios.mjs'
-import { categorizar, normalizarComercio, parseImporte } from '../supabase/functions/_shared/gastos.ts'
+import { categorizar, categorizarIngreso, esIngreso, normalizarComercio, parseImporte } from '../supabase/functions/_shared/gastos.ts'
 import { valorar } from '../src/lib/cartera.ts'
 
 test('parseImporte entiende los formatos que manda el iPhone', () => {
@@ -73,4 +73,15 @@ test('valorar usa las participaciones de una posición inicial cuando se conocen
   assert.equal(etf.participaciones, 13.5)
   assert.equal(etf.neto, 1100)
   assert.equal(Math.round(etf.valor * 100) / 100, 1485)
+})
+
+test('los ingresos del Atajo se reconocen y se clasifican por el concepto', () => {
+  assert.equal(esIngreso('Ingreso'), true)
+  assert.equal(esIngreso('ingreso'), true)
+  assert.equal(esIngreso('Gasto'), false)
+  assert.equal(esIngreso(undefined), false)
+  assert.equal(categorizarIngreso('Bizum de Ana'), 'Bizum')
+  assert.equal(categorizarIngreso('Nómina octubre'), 'Nómina')
+  assert.equal(categorizarIngreso('Devolución Zara'), 'Devoluciones')
+  assert.equal(categorizarIngreso('Venta Wallapop'), 'Otros ingresos')
 })

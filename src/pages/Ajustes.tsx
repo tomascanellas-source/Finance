@@ -53,6 +53,23 @@ export default function Ajustes({ email }: { email: string }) {
       </section>
 
       <section className="panel">
+        <h2>Atajo para apuntar a mano</h2>
+        <p>Para Bizums, nómina, pagos con la tarjeta física o en efectivo. Lo lanzas desde la pantalla de bloqueo o diciendo “Oye Siri, apunta un movimiento”: te pregunta si es gasto o ingreso, cuánto y el concepto.</p>
+        <ol className="pasos">
+          <li>En <b>Atajos</b>, pestaña <b>Atajos</b> → <b>+</b>. Ponle de nombre <b>Apunta un movimiento</b> (es lo que dirás a Siri).</li>
+          <li>Añade la acción <b>Lista</b> con dos elementos: <code>Gasto</code> e <code>Ingreso</code>. Debajo, <b>Elegir de la lista</b>.</li>
+          <li>Añade <b>Solicitar entrada</b> de tipo <b>Número</b> con la pregunta <code>¿Cuánto?</code>, y otra <b>Solicitar entrada</b> de tipo <b>Texto</b> con <code>¿Concepto?</code>.</li>
+          <li>
+            Añade <b>Obtener contenido de URL</b> con la misma dirección y la misma cabecera <code>Authorization</code> que el Atajo de Apple Pay (puedes copiar el valor desde ese Atajo):
+            <div className="copiable"><code>{url}</code><button className="btn small" onClick={() => copiar(url)}>Copiar</button></div>
+          </li>
+          <li>Método <b>POST</b>, cuerpo <b>JSON</b> con tres campos de texto: <code>importe</code> → la entrada de <b>¿Cuánto?</b>, <code>comercio</code> → la entrada de <b>¿Concepto?</b>, <code>tipo</code> → <b>Elemento elegido</b>. Para escoger cada una, pulsa el campo → <b>Seleccionar variable</b> → toca la acción de la que sale.</li>
+          <li>Termina con <b>Mostrar notificación</b> → <b>Contenido de URL</b>, para ver “+15,00 € · Bizum de Ana · Bizum”.</li>
+          <li>Para tenerlo a mano: mantén pulsada la pantalla de bloqueo → <b>Personalizar</b> → añade el widget de <b>Atajos</b>, o asígnalo al <b>botón de acción</b> si tu iPhone lo tiene.</li>
+        </ol>
+      </section>
+
+      <section className="panel">
         <h2>Instalar en el iPhone</h2>
         <p>En Safari, pulsa <b>Compartir</b> → <b>Añadir a pantalla de inicio</b>. La app se abrirá a pantalla completa como cualquier otra.</p>
       </section>

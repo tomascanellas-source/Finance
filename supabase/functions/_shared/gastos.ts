@@ -14,6 +14,20 @@ export const CATEGORIAS = [
 ] as const
 export type Categoria = (typeof CATEGORIAS)[number]
 
+export const CATEGORIAS_INGRESO = ['Nómina', 'Bizum', 'Devoluciones', 'Otros ingresos'] as const
+
+// "Ingreso", "ingreso", "+" -> ingreso; cualquier otra cosa es un gasto
+export const esIngreso = (raw: unknown) => /^\s*(ingres|\+)/i.test(String(raw ?? ''))
+
+// Categoría de un ingreso a partir del concepto
+export function categorizarIngreso(concepto: string): string {
+  const n = normalizarComercio(concepto)
+  if (/\b(nomina|sueldo|salario|paga)\b/.test(n)) return 'Nómina'
+  if (/\bbizum\b/.test(n)) return 'Bizum'
+  if (/\b(devolucion|reembolso|abono|refund)\b/.test(n)) return 'Devoluciones'
+  return 'Otros ingresos'
+}
+
 // "23,50 €", "€1.234,56", "12.99", "-4,20" -> número positivo con 2 decimales; NaN si no se entiende
 export function parseImporte(raw: unknown): number {
   if (typeof raw === 'number') return Number.isFinite(raw) ? round2(Math.abs(raw)) : NaN
