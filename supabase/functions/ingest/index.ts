@@ -24,7 +24,8 @@ Deno.serve(async req => {
 
   let body: Record<string, unknown>
   try {
-    body = await req.json()
+    // Atajos suele poner mayúscula al escribir la clave ("Importe"): aceptamos cualquier forma
+    body = Object.fromEntries(Object.entries(await req.json()).map(([k, v]) => [k.trim().toLowerCase(), v]))
   } catch {
     return json(400, { error: 'El cuerpo debe ser JSON' })
   }
