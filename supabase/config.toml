@@ -1,0 +1,5 @@
+project_id = "finanzas"
+
+# El Atajo del iPhone no tiene sesión de Supabase: se autentica con su propio token
+[functions.ingest]
+verify_jwt = false
