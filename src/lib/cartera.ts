@@ -20,7 +20,8 @@ function precioEn(precios: Precio[], fecha: string): number | null {
   return elegido.cierre_eur
 }
 
-// Con importes en € y precios de cierre: participaciones = importe / precio del día; valor = participaciones × último precio
+// Participaciones de cada movimiento: las que dio el usuario (posición inicial) o importe / precio de ese día.
+// Valor = participaciones × último precio
 export function valorar(activos: Activo[], aportaciones: Aportacion[], precios: Precio[]): Posicion[] {
   const porActivo = new Map<string, Precio[]>()
   for (const p of precios) {
@@ -36,7 +37,10 @@ export function valorar(activos: Activo[], aportaciones: Aportacion[], precios: 
       const neto = movs.reduce((s, a) => s + a.importe, 0)
       const ps = porActivo.get(activo.id) ?? []
       if (activo.ticker && ps.length) {
-        const participaciones = movs.reduce((s, a) => s + a.importe / (precioEn(ps, a.fecha) as number), 0)
+        const participaciones = movs.reduce(
+          (s, a) => s + (a.participaciones != null ? Math.sign(a.importe) * a.participaciones : a.importe / (precioEn(ps, a.fecha) as number)),
+          0,
+        )
         const ultimo = ps[ps.length - 1]
         return { activo, neto, participaciones, ultimoPrecio: ultimo, valor: participaciones * ultimo.cierre_eur, conPrecio: true }
       }

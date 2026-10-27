@@ -66,6 +66,7 @@ input.amount { font-family: var(--f-mono); font-size: 1.3rem }
 .linkbtn { font: inherit; font-size: .85rem; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 2px }
 .msg { font-size: .88rem } .msg.ok { color: var(--accent) } .msg.err { color: var(--neg) }
 .seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 3px; gap: 3px }
+.seg.tres { grid-template-columns: repeat(3, 1fr) }
 .seg button { border: 0; background: transparent; border-radius: 6px; padding: 8px; font: inherit; font-weight: 600; color: var(--muted); cursor: pointer }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, .08) }
 .newbox { border: 1px dashed var(--line); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px }

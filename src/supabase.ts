@@ -27,6 +27,8 @@ export interface Aportacion {
   activo_id: string
   importe: number
   fecha: string
+  tipo: 'aportacion' | 'inicial'
+  participaciones: number | null
 }
 
 export interface Precio {

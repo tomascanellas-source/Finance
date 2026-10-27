@@ -58,3 +58,19 @@ test('valorar calcula participaciones con el precio del día de cada aportación
   assert.equal(cuenta.valor, 510)
   assert.equal(cuenta.conPrecio, true)
 })
+
+test('valorar usa las participaciones de una posición inicial cuando se conocen', () => {
+  const activos = [{ id: 'a', nombre: 'ETF', tipo: 'ETF', ticker: 'EUNL.DE', valor_actual: null, valor_fecha: null }]
+  const aportaciones = [
+    { id: '1', activo_id: 'a', importe: 1000, fecha: '2024-01-01', tipo: 'inicial', participaciones: 12.5 },
+    { id: '2', activo_id: 'a', importe: 100, fecha: '2026-10-01', tipo: 'aportacion', participaciones: null },
+  ]
+  const precios = [
+    { activo_id: 'a', fecha: '2026-10-01', cierre_eur: 100 },
+    { activo_id: 'a', fecha: '2026-10-24', cierre_eur: 110 },
+  ]
+  const [etf] = valorar(activos, aportaciones, precios)
+  assert.equal(etf.participaciones, 13.5)
+  assert.equal(etf.neto, 1100)
+  assert.equal(Math.round(etf.valor * 100) / 100, 1485)
+})

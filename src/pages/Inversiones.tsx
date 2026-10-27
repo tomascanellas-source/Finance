@@ -14,6 +14,8 @@ const SUGERENCIAS: { nombre: string; tipo: string; ticker: string | null }[] = [
   { nombre: 'Ethereum', tipo: 'Cripto', ticker: 'ETH-EUR' },
   { nombre: 'Cuenta remunerada', tipo: 'Efectivo', ticker: null },
 ]
+// Participaciones con muchos decimales: "12,4537" o "12.4537" (no hay separador de miles)
+const parseCantidad = (s: string) => Number(s.trim().replace(',', '.'))
 const COLORES = ['var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)', 'var(--c5)', 'var(--c6)']
 
 export default function Inversiones() {
@@ -26,13 +28,13 @@ export default function Inversiones() {
   const cargar = useCallback(async () => {
     const [a, b, c] = await Promise.all([
       supabase.from('activos').select('id, nombre, tipo, ticker, valor_actual, valor_fecha').order('nombre'),
-      supabase.from('aportaciones').select('id, activo_id, importe, fecha').order('fecha', { ascending: false }),
+      supabase.from('aportaciones').select('id, activo_id, importe, fecha, tipo, participaciones').order('fecha', { ascending: false }),
       supabase.from('precios').select('activo_id, fecha, cierre_eur').order('fecha').limit(20000),
     ])
     if (a.error || b.error || c.error) setError('No se puede cargar la cartera. Revisa la conexión y recarga.')
     else {
       setActivos(a.data.map(x => ({ ...x, valor_actual: x.valor_actual == null ? null : num(x.valor_actual) })))
-      setAportaciones(b.data.map(x => ({ ...x, importe: num(x.importe) })))
+      setAportaciones(b.data.map(x => ({ ...x, importe: num(x.importe), participaciones: x.participaciones == null ? null : num(x.participaciones) })))
       setPrecios(c.data.map(x => ({ ...x, cierre_eur: num(x.cierre_eur) })))
     }
     setCargado(true)
@@ -113,7 +115,7 @@ function FilaAportacion({ a, nombre, onBorrar }: { a: Aportacion; nombre: string
   const [confirmar, setConfirmar] = useState(false)
   return (
     <li className="mov">
-      <div className="movtxt"><span className="t">{nombre}</span><span className="muted">{fechaCorta(a.fecha)}</span></div>
+      <div className="movtxt"><span className="t">{nombre}</span><span className="muted">{a.tipo === 'inicial' ? `Posición inicial · ${fechaCorta(a.fecha)}` : fechaCorta(a.fecha)}{a.participaciones != null ? ` · ${a.participaciones.toLocaleString('es-ES', { maximumFractionDigits: 6 })} part.` : ''}</span></div>
       <span className={'num importe ' + (a.importe < 0 ? 'negc' : '')}>{signed(a.importe)}</span>
       {confirmar
         ? <span className="confirmar"><button className="btn small" onClick={onBorrar}>Borrar</button><button className="linkbtn" onClick={() => setConfirmar(false)}>No</button></span>
@@ -146,7 +148,8 @@ function ValorManual({ activo, onGuardado }: { activo: Activo; onGuardado: () =>
 }
 
 function NuevaAportacion({ activos, onGuardado }: { activos: Activo[]; onGuardado: () => void }) {
-  const [signo, setSigno] = useState<1 | -1>(1)
+  const [modo, setModo] = useState<'aportar' | 'retirar' | 'inicial'>('aportar')
+  const [participaciones, setParticipaciones] = useState('')
   const [activoId, setActivoId] = useState('')
   const [nuevo, setNuevo] = useState({ nombre: '', tipo: 'ETF', ticker: '' })
   const [importe, setImporte] = useState('')
@@ -169,20 +172,30 @@ function NuevaAportacion({ activos, onGuardado }: { activos: Activo[]; onGuardad
       id = data.id
       nombre = nuevo.nombre.trim()
     }
-    const { error } = await supabase.from('aportaciones').insert({ activo_id: id, importe: n * signo, fecha })
+    const part = participaciones.trim() ? parseCantidad(participaciones) : null
+    if (part != null && !(part > 0)) return setMsg({ texto: 'Las participaciones deben ser un número, por ejemplo 12,5.', error: true })
+    const { error } = await supabase.from('aportaciones').insert({
+      activo_id: id,
+      importe: modo === 'retirar' ? -n : n,
+      fecha,
+      tipo: modo === 'inicial' ? 'inicial' : 'aportacion',
+      participaciones: part,
+    })
     if (error) return setMsg({ texto: 'No se ha guardado. Revisa la conexión.', error: true })
-    setMsg({ texto: `${signo === 1 ? 'Aportados' : 'Retirados'} ${eur.format(n)} en ${nombre}.` })
-    setImporte(''); setNuevo({ nombre: '', tipo: 'ETF', ticker: '' }); setActivoId(id); setSigno(1); setFecha(hoyISO())
+    setMsg({ texto: modo === 'inicial' ? `Registrado lo que ya tenías en ${nombre}: ${eur.format(n)}.` : `${modo === 'aportar' ? 'Aportados' : 'Retirados'} ${eur.format(n)} en ${nombre}.` })
+    setImporte(''); setParticipaciones(''); setNuevo({ nombre: '', tipo: 'ETF', ticker: '' }); setActivoId(id); setModo('aportar'); setFecha(hoyISO())
     onGuardado()
   }
 
   return (
     <form className="panel" onSubmit={guardar}>
-      <h2>Nueva aportación</h2>
-      <div className="seg" role="group" aria-label="Tipo de movimiento">
-        <button type="button" aria-pressed={signo === 1} onClick={() => setSigno(1)}>Aportar</button>
-        <button type="button" aria-pressed={signo === -1} onClick={() => setSigno(-1)}>Retirar</button>
+      <h2>{modo === 'inicial' ? 'Lo que ya tienes invertido' : 'Nueva aportación'}</h2>
+      <div className="seg tres" role="group" aria-label="Tipo de movimiento">
+        <button type="button" aria-pressed={modo === 'aportar'} onClick={() => setModo('aportar')}>Aportar</button>
+        <button type="button" aria-pressed={modo === 'retirar'} onClick={() => setModo('retirar')}>Retirar</button>
+        <button type="button" aria-pressed={modo === 'inicial'} onClick={() => setModo('inicial')}>Ya lo tengo</button>
       </div>
+      {modo === 'inicial' && <p className="hint">Para cada activo que ya tengas, pon el total que has metido hasta hoy. Si además pones las participaciones que te muestra Trade Republic, el valor será exacto.</p>}
       <div className="field">
         <label htmlFor="i-activo">¿Dónde inviertes?</label>
         <select id="i-activo" value={elegido} onChange={e => setActivoId(e.target.value)}>
@@ -209,10 +222,16 @@ function NuevaAportacion({ activos, onGuardado }: { activos: Activo[]; onGuardad
         </div>
       )}
       <div className="row2">
-        <div className="field"><label htmlFor="i-importe">Importe (€)</label><input id="i-importe" className="amount" inputMode="decimal" placeholder="0,00" value={importe} onChange={e => setImporte(e.target.value)} /></div>
-        <div className="field"><label htmlFor="i-fecha">Fecha</label><input id="i-fecha" type="date" max={hoyISO()} value={fecha} onChange={e => setFecha(e.target.value)} /></div>
+        <div className="field"><label htmlFor="i-importe">{modo === 'inicial' ? 'Total invertido (€)' : 'Importe (€)'}</label><input id="i-importe" className="amount" inputMode="decimal" placeholder="0,00" value={importe} onChange={e => setImporte(e.target.value)} /></div>
+        <div className="field"><label htmlFor="i-fecha">{modo === 'inicial' ? 'Desde (aprox.)' : 'Fecha'}</label><input id="i-fecha" type="date" max={hoyISO()} value={fecha} onChange={e => setFecha(e.target.value)} /></div>
       </div>
-      <button className="btn primary">{signo === 1 ? 'Guardar aportación' : 'Guardar retirada'}</button>
+      {modo !== 'retirar' && (
+        <div className="field">
+          <label htmlFor="i-part">Participaciones {modo === 'inicial' ? '(recomendado)' : '(opcional)'}</label>
+          <input id="i-part" inputMode="decimal" placeholder="Ej. 12,4537" value={participaciones} onChange={e => setParticipaciones(e.target.value)} />
+        </div>
+      )}
+      <button className="btn primary">{modo === 'inicial' ? 'Registrar lo que tengo' : modo === 'aportar' ? 'Guardar aportación' : 'Guardar retirada'}</button>
       {msg && <p className={msg.error ? 'msg err' : 'msg ok'} role="status">{msg.texto}</p>}
     </form>
   )
